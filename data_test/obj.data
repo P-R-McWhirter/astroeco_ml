@@ -1,0 +1,5 @@
+classes = 3
+train = /home/astroecology/Documents/astroeco_ml/data_test/train.txt
+valid = /home/astroecology/Documents/astroeco_ml/data_test/val.txt
+names = /home/astroecology/Documents/astroeco_ml/../data_arribada_cv_final/obj.names
+backup = /home/astroecology/Documents/astroeco_ml/model_test/

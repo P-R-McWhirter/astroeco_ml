@@ -1,0 +1,5 @@
+classes = 4
+train = /home/astroecology/Documents/astroeco_ml/empty.txt
+valid = /home/astroecology/Documents/astroeco_ml/empty.txt
+names = /media/astroecology/raid/knowsley_model_data/obj.names
+backup = /home/astroecology/Documents/astroeco_ml
