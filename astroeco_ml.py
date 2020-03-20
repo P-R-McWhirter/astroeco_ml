@@ -31,6 +31,13 @@ ap.add_argument("--model_dim", type=int, required=False, help="Model input image
 ap.add_argument("--num_of_epochs", type=float, required=False, help="Number of epochs to train the model.")
 ap.add_argument("--data_folder", type=str, required=False, help="Folder to output the data files of the trained model. Note: this will overwrite data files in this folder.")
 ap.add_argument("--model_folder", type=str, required=False, help="Folder to output the weights files of the trained model. Note: this may overwrite weights files in this folder.")
+ap.add_argument("--altaug", required=False, default=False, action='store_true', help="Flag to augment the altitude of the training data.")
+ap.add_argument("--init_height", type=float, required=False, help="Initial height of the training data for altitude augmentation.")
+ap.add_argument("--new_heights", nargs="+", required=False, help="List of the new heights for the altitude augmentation.")
+
+# Evaluation arguments.
+
+ap.add_argument("--iou_thresh", type=float, required=False, help="Threshold for the Intersection over Union of correct predictions relative to ground boxes.")
 
 # Detection arguments.
 
@@ -39,7 +46,7 @@ ap.add_argument("--weights", type=str, required=False, help="Weights (model) fil
 ap.add_argument("--obj_names", type=str, required=False, help="Object names file (lists the classes).")
 ap.add_argument("--input", type=str, required=False, help="Input folder of images to be classified with existing detection model.")
 ap.add_argument("--conf_thres", type=float, required=False, help="Confidence threshold probability between 0 and 1.")
-ap.add_argument("--make_video", type=bool, required=False, default=False, help="Boolean flag (True/False) to generate a video from final classifications.")
+ap.add_argument("--make_video", required=False, default=False, action='store_true', help="Flag to generate a video from final classifications.")
 ap.add_argument("--video_framerate", type=float, required=False, help="Framerate of output video from final classifications.")
 ap.add_argument("--output", type=str, required=False, help="Output folder of images classified with existing detection model.")
 
@@ -167,11 +174,55 @@ def astroeco_ml_train(args, cwd, darknet_path):
         else:
             print("Done.")
 
-    #######################################################################
+    # Fix any issues with the training set labels.
 
-    ## Consider adding more data augmentation (altitude, rotation) here. ##
+    print("Fixing issues with training set labels prior to any possible augmentation...")
 
-    #######################################################################
+    os.chdir(os.path.join(cwd, train_folder))
+
+    check_output(['python ' + os.path.join(cwd, 'removebadlbls.py')], shell = True)
+
+    print("Done.")
+
+    # Augment the height of the training data if requested.
+
+    altaug = args['altaug']
+
+    init_height = args['init_height']
+
+    new_heights = args['new_heights']
+
+    if altaug == False:
+        print("Altaug argument is False. No altitude augmentation will be applied. You can add it by supplying the --altaug flag.")
+    else:
+        if init_height is None:
+            raise NameError("Altitude augmentation requested but the initial height is missing, use the --init_height argument to supply this height. Exiting...")
+        elif new_heights is None:
+            raise NameError("Altitude augmentation requested but the new heights are missing, use the --new_heights argument to supply these heights. Exiting...")
+        else:
+            print("Altaug argument is True. The training data will be augmented with height information from init_height and new_heights.")
+
+    if altaug == True:
+
+        print("Applying altitude augmentation to the training data...")
+
+        # Move to the training data folder.
+
+        os.chdir(os.path.join(cwd, train_folder))
+
+        for target_height in new_heights:
+
+            check_output(['python ' + os.path.join(cwd, 'augment_height.py') + ' --start ' + str(init_height) + ' --end ' + str(target_height)], shell = True)
+
+        print("Done.")
+
+        os.chdir(cwd)
+
+    #################################################
+
+    ## Consider adding rotation augmentation here. ##
+
+    #################################################
 
     # Load in the output model 'backup' folder.
 
@@ -211,17 +262,38 @@ def astroeco_ml_train(args, cwd, darknet_path):
 
     # First we must produce the train.txt and val.txt files. Fortunately we have a python script (makedatafiles.py) in this directory to do this.
 
-    # We can also fix any labelling bugs from the Deeplabel export using removebadlbls.py
+    # We can also fix any labelling bugs from the Deeplabel export using removebadlbls.py (done already for training set, not for validation set).
 
     print("Processing training data prior to model training...")
 
     os.chdir(os.path.join(cwd, train_folder))
 
-    check_output(['python ' + os.path.join(cwd, 'removebadlbls.py')], shell = True)
-
     check_output(['python ' + os.path.join(cwd, 'makedatafiles.py') + ' -f train.txt'], shell = True)
 
     check_output(['mv train.txt ' + data_folder_path], shell = True)
+
+    if altaug == True:
+
+        os.chdir(data_folder_path)
+
+        check_output(['mv train.txt train_orig.txt'], shell = True)
+
+        aug_train_files = ['train_orig.txt']
+
+        for target_height in new_heights:
+
+            os.chdir(os.path.join(cwd, train_folder, 'alt_aug', 'altaug_data_' + str(int(init_height)) + '_' + str(int(target_height))))
+
+            check_output(['python ' + os.path.join(cwd, 'makedatafiles.py') + ' -f train_' + str(int(init_height)) + '_' + str(int(target_height)) + '.txt'], shell = True)
+
+            check_output(['mv train_' + str(int(init_height)) + '_' + str(int(target_height)) + '.txt ' + data_folder_path], shell = True)
+
+            aug_train_files.append('train_' + str(int(init_height)) + '_' + str(int(target_height)) + '.txt')
+
+        with open(os.path.join(data_folder_path, 'train.txt'), 'w') as outfile:
+            for fname in aug_train_files:
+                with open(os.path.join(data_folder_path, fname)) as infile:
+                    outfile.write(infile.read())
 
     print("Done.")
 
@@ -2675,7 +2747,7 @@ def astroeco_ml_train_yolov3_tiny_3l(cwd, darknet_path, data_folder_path, obj_da
 
     print("Training process complete. If you wish to evaluate the trained model, use the --mode eval option.")
 
-def astroeco_ml_eval():
+def astroeco_ml_eval(args, cwd, darknet_path):
 
     print("**********************************************")
 
@@ -2686,6 +2758,8 @@ def astroeco_ml_eval():
     # Move work directory to the darknet folder.
 
     os.chdir(darknet_path)
+
+    
 
 def astroeco_ml_detect(args, cwd, ultra_path):
 
@@ -2710,6 +2784,8 @@ def astroeco_ml_detect(args, cwd, ultra_path):
     else:
         print("Done.")
 
+    cfg_path = os.path.join(cwd, cfg_path)
+
     # Open weights filepath.
 
     print("Opening model weights file for darknet model...")
@@ -2720,6 +2796,8 @@ def astroeco_ml_detect(args, cwd, ultra_path):
         raise NameError("No weights file entered, use the --weights argument to supply the path. Exiting...")
     else:
         print("Done.")
+
+    weights_path = os.path.join(cwd, weights_path)
 
     # Open object names filepath.
 
@@ -2732,6 +2810,8 @@ def astroeco_ml_detect(args, cwd, ultra_path):
     else:
         print("Done.")
 
+    obj_names_path = os.path.join(cwd, obj_names_path)
+
     # Open folder containing target images.
 
     print("Opening target image folder for classification...")
@@ -2742,6 +2822,8 @@ def astroeco_ml_detect(args, cwd, ultra_path):
         raise NameError("No input image folder path, use the --input argument to supply the path. Exiting...")
     else:
         print("Done.")
+
+    input_path = os.path.join(cwd, input_path)
 
     # Collecting confidence threshold.
 
@@ -2820,6 +2902,8 @@ def astroeco_ml_detect(args, cwd, ultra_path):
 
     make_video = args['make_video']
 
+    print(make_video)
+
     if make_video == True:
 
         print("Using ffdshow to produce a video from the classified frames (use on thermal video frames)....")
@@ -2849,7 +2933,7 @@ if mode == "train":
 
 elif mode == "eval":
 
-    astroeco_ml_eval()
+    astroeco_ml_eval(args, cwd, darknet_path)
 
 elif mode == "detect":
 
