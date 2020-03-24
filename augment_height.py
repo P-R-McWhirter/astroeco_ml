@@ -6,7 +6,6 @@ import os
 import gc
 import cv2
 import argparse
-from shutil import rmtree
 
 gc.enable()
 

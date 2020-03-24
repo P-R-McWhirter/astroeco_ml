@@ -32,8 +32,10 @@ ap.add_argument("--num_of_epochs", type=float, required=False, help="Number of e
 ap.add_argument("--data_folder", type=str, required=False, help="Folder to output the data files of the trained model. Note: this will overwrite data files in this folder.")
 ap.add_argument("--model_folder", type=str, required=False, help="Folder to output the weights files of the trained model. Note: this may overwrite weights files in this folder.")
 ap.add_argument("--altaug", required=False, default=False, action='store_true', help="Flag to augment the altitude of the training data.")
+ap.add_argument("--rotaug", required=False, default=False, action='store_true', help="Flag to augment the rotation of the training data.")
 ap.add_argument("--init_height", type=float, required=False, help="Initial height of the training data for altitude augmentation.")
 ap.add_argument("--new_heights", nargs="+", required=False, help="List of the new heights for the altitude augmentation.")
+ap.add_argument("--rot_angle", type=int, required=False, help="Integer incremental rotation angle in degrees for the rotational augmentation.")
 
 # Evaluation arguments.
 
@@ -184,6 +186,12 @@ def astroeco_ml_train(args, cwd, darknet_path):
 
     print("Done.")
 
+    #################################################
+
+    ## Consider adding rotation augmentation here. ##
+
+    #################################################
+
     # Augment the height of the training data if requested.
 
     altaug = args['altaug']
@@ -193,14 +201,14 @@ def astroeco_ml_train(args, cwd, darknet_path):
     new_heights = args['new_heights']
 
     if altaug == False:
-        print("Altaug argument is False. No altitude augmentation will be applied. You can add it by supplying the --altaug flag.")
+        print("Altaug argument not present. No altitude augmentation will be applied. You can add it by supplying the --altaug flag.")
     else:
         if init_height is None:
             raise NameError("Altitude augmentation requested but the initial height is missing, use the --init_height argument to supply this height. Exiting...")
         elif new_heights is None:
             raise NameError("Altitude augmentation requested but the new heights are missing, use the --new_heights argument to supply these heights. Exiting...")
         else:
-            print("Altaug argument is True. The training data will be augmented with height information from init_height and new_heights.")
+            print("Altaug argument present. The training data will be augmented with height information from init_height and new_heights.")
 
     if altaug == True:
 
@@ -217,12 +225,6 @@ def astroeco_ml_train(args, cwd, darknet_path):
         print("Done.")
 
         os.chdir(cwd)
-
-    #################################################
-
-    ## Consider adding rotation augmentation here. ##
-
-    #################################################
 
     # Load in the output model 'backup' folder.
 
@@ -2901,8 +2903,6 @@ def astroeco_ml_detect(args, cwd, ultra_path):
     os.chdir(output_path)
 
     make_video = args['make_video']
-
-    print(make_video)
 
     if make_video == True:
 
