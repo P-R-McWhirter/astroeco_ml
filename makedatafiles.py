@@ -1,9 +1,6 @@
-import cv2
 import numpy as np
-from matplotlib import pyplot as plt
 import argparse
 import os
-import csv
 
 ap = argparse.ArgumentParser()
 ap.add_argument("-f", "--file", type=str, required=True, help="output filename")

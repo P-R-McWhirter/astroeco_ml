@@ -192,6 +192,36 @@ def astroeco_ml_train(args, cwd, darknet_path):
 
     #################################################
 
+    # Augment the rotation of the training data if requested.
+
+    rotaug = args['rotaug']
+
+    rot_angle = args['rot_angle']
+
+    if rotaug == False:
+        print("Rotaug argument not present. No rotation augmentation will be applied. You can add it by supplying the --rotaug flag.")
+    else:
+        if rot_angle is None:
+            raise NameError("Rotation augmentation requested but the rotation angle is missing, use the --rot_angle argument to supply this angle. Exiting...")
+        else:
+            print("Rotaug argument present. The training data will be rotationally augmented using the supplied rotation angle.")
+
+            rot_angle = int(rot_angle)
+
+    if rotaug == True:
+
+        print("Applying rotation augmentation to the training data...")
+
+        # Move to the training data folder.
+
+        os.chdir(os.path.join(cwd, train_folder))
+
+        check_output(['python ' + os.path.join(cwd, 'augment_rotation.py') + ' --angle ' + str(rot_angle)], shell = True)
+
+        print("Done.")
+
+        os.chdir(cwd)
+
     # Augment the height of the training data if requested.
 
     altaug = args['altaug']
@@ -212,11 +242,21 @@ def astroeco_ml_train(args, cwd, darknet_path):
 
     if altaug == True:
 
-        print("Applying altitude augmentation to the training data...")
+        if rotaug == True:
 
-        # Move to the training data folder.
+            print("Applying altitude augmentation to the rotationally augmented data...")
 
-        os.chdir(os.path.join(cwd, train_folder))
+            # Move to the rotation augmented data folder.
+
+            os.chdir(os.path.join(cwd, train_folder, 'rot_aug'))
+
+        else:
+
+            print("Applying altitude augmentation to the training data...")
+
+            # Move to the training data folder.
+
+            os.chdir(os.path.join(cwd, train_folder))
 
         for target_height in new_heights:
 
@@ -268,13 +308,21 @@ def astroeco_ml_train(args, cwd, darknet_path):
 
     print("Processing training data prior to model training...")
 
-    os.chdir(os.path.join(cwd, train_folder))
+    if altaug == False and rotaug == False:
 
-    check_output(['python ' + os.path.join(cwd, 'makedatafiles.py') + ' -f train.txt'], shell = True)
+        os.chdir(os.path.join(cwd, train_folder))
 
-    check_output(['mv train.txt ' + data_folder_path], shell = True)
+        check_output(['python ' + os.path.join(cwd, 'makedatafiles.py') + ' -f train.txt'], shell = True)
 
-    if altaug == True:
+        check_output(['mv train.txt ' + data_folder_path], shell = True)
+
+    elif altaug == True and rotaug == False:
+
+        os.chdir(os.path.join(cwd, train_folder))
+
+        check_output(['python ' + os.path.join(cwd, 'makedatafiles.py') + ' -f train.txt'], shell = True)
+
+        check_output(['mv train.txt ' + data_folder_path], shell = True)
 
         os.chdir(data_folder_path)
 
@@ -285,6 +333,43 @@ def astroeco_ml_train(args, cwd, darknet_path):
         for target_height in new_heights:
 
             os.chdir(os.path.join(cwd, train_folder, 'alt_aug', 'altaug_data_' + str(int(init_height)) + '_' + str(int(target_height))))
+
+            check_output(['python ' + os.path.join(cwd, 'makedatafiles.py') + ' -f train_' + str(int(init_height)) + '_' + str(int(target_height)) + '.txt'], shell = True)
+
+            check_output(['mv train_' + str(int(init_height)) + '_' + str(int(target_height)) + '.txt ' + data_folder_path], shell = True)
+
+            aug_train_files.append('train_' + str(int(init_height)) + '_' + str(int(target_height)) + '.txt')
+
+        with open(os.path.join(data_folder_path, 'train.txt'), 'w') as outfile:
+            for fname in aug_train_files:
+                with open(os.path.join(data_folder_path, fname)) as infile:
+                    outfile.write(infile.read())
+
+    elif altaug == False and rotaug == True:
+
+        os.chdir(os.path.join(cwd, train_folder, 'rot_aug'))
+
+        check_output(['python ' + os.path.join(cwd, 'makedatafiles.py') + ' -f train.txt'], shell = True)
+
+        check_output(['mv train.txt ' + data_folder_path], shell = True)
+
+    elif altaug == True and rotaug == True:
+
+        os.chdir(os.path.join(cwd, train_folder, 'rot_aug'))
+
+        check_output(['python ' + os.path.join(cwd, 'makedatafiles.py') + ' -f train.txt'], shell = True)
+
+        check_output(['mv train.txt ' + data_folder_path], shell = True)
+
+        os.chdir(data_folder_path)
+
+        check_output(['mv train.txt train_orig.txt'], shell = True)
+
+        aug_train_files = ['train_orig.txt']
+
+        for target_height in new_heights:
+
+            os.chdir(os.path.join(cwd, train_folder, 'rot_aug', 'alt_aug', 'altaug_data_' + str(int(init_height)) + '_' + str(int(target_height))))
 
             check_output(['python ' + os.path.join(cwd, 'makedatafiles.py') + ' -f train_' + str(int(init_height)) + '_' + str(int(target_height)) + '.txt'], shell = True)
 
@@ -317,14 +402,30 @@ def astroeco_ml_train(args, cwd, darknet_path):
 
     classes = len(obj_names.readlines())
 
-    # Also fetch the training set size.
+    # Also fetch the raw training set size.
 
-    training_set = open(os.path.join(data_folder_path, 'train.txt'), "r")
+    training_set_init = []
 
-    training_set_size = len(training_set.readlines())
+    for file in os.listdir(os.path.join(cwd, train_folder)):
+        if (file.endswith(".png") or file.endswith(".jpg")):
+            training_set_init.append(file)
+
+    training_set_size = len(training_set_init)
 
     if training_set_size == 0:
         raise NameError("Something has gone wrong reading the training set size. This is not automatically repairable. Exiting...")
+
+    # Then we use multipliers to determine the 'theoretical' increase in training set size due to augmentation.
+
+    if rotaug == True:
+
+        training_set_size = training_set_size * (1.0 + (0.2 * np.ceil(360 / rot_angle)))
+
+    if altaug == True:
+
+        training_set_size = training_set_size * (1.0 + (0.1 * len(new_heights)))
+
+    training_set_size = np.ceil(training_set_size)
 
     # Now we can build the obj.data file.
 
