@@ -17,12 +17,14 @@ ap.add_argument("-p", "--prefix", type=str, required=True, help="prefix for sele
 ap.add_argument("-d", "--datapath", type=str, required=True, help="object relative data path for darknet")
 ap.add_argument("-c", "--cfgpath", type=str, required=True, help="config relative data path for darknet")
 ap.add_argument("-o", "--output", type=str, required=True, help="output csv file for results")
+ap.add_argument("-n", "--darknet", type=str, required=True, help="path to the darknet executable folder")
 args = vars(ap.parse_args())
 
 prefix = args["prefix"]
 datapath = args["datapath"]
 cfgpath = args["cfgpath"]
 output = args["output"]
+darknet = args["darknet"]
 
 filetype = '.weights'
 
@@ -42,9 +44,9 @@ models = sorted(models)
 
 mods_len = len(models)
 
-os.chdir('..')
+os.chdir(darknet)
 	
-first_result = subprocess.check_output(['./darknet detector map ' + datapath + ' ' + cfgpath + ' ' + cwd_name + '/' + models[0]], shell=True)
+first_result = subprocess.check_output(['./darknet detector map ' + datapath + ' ' + cfgpath + ' ' + os.path.join(cwd, models[0])], shell=True)
 
 first_result = re.split('\t|\n|\r', first_result.decode())
 
@@ -61,7 +63,7 @@ with open(output, 'w+', newline='') as csvfile:
 
 for mod_num in range(1, len(models)):
 
-    new_result = subprocess.check_output(['./darknet detector map ' + datapath + ' ' + cfgpath + ' ' + cwd_name + '/' + models[mod_num]], shell=True)
+    new_result = subprocess.check_output(['./darknet detector map ' + datapath + ' ' + cfgpath + ' ' + os.path.join(cwd, models[mod_num])], shell=True)
 
     new_result = re.split('\t|\n|\r', new_result.decode())
 	

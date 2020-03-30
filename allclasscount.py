@@ -5,11 +5,11 @@ import os
 import csv
 import argparse
 
-ap = argparse.ArgumentParser()
-ap.add_argument("-f", "--filetype", type=str, required=True, help="input filetype")
-args = vars(ap.parse_args())
+#ap = argparse.ArgumentParser()
+#ap.add_argument("-f", "--filetype", type=str, required=True, help="input filetype")
+#args = vars(ap.parse_args())
 
-filetype = args["filetype"]
+#filetype = args["filetype"]
 
 ## Open a list of file names in the current work directory cwd.
 
@@ -19,7 +19,7 @@ cwd = os.getcwd()
 ## Add .png files to the list of file names.
 
 for file in os.listdir(cwd):
-	if file.endswith(filetype):
+	if (file.endswith(".png") or file.endswith(".jpg")):
 		imgs.append(cwd + "/" + file)
 
 ## Read in the label files and compute the number of each class.

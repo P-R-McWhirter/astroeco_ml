@@ -1,0 +1,15 @@
+yolov3-tiny-3l_1000.weights 1000 Human 1 157 154 310 34.08
+yolov3-tiny-3l_10000.weights 10000 Human 1 322 74 145 77.57
+yolov3-tiny-3l_11000.weights 11000 Human 1 341 95 126 77.70
+yolov3-tiny-3l_12000.weights 12000 Human 1 346 76 121 81.21
+yolov3-tiny-3l_13000.weights 13000 Human 1 354 67 113 81.53
+yolov3-tiny-3l_2000.weights 2000 Human 1 304 210 163 63.54
+yolov3-tiny-3l_3000.weights 3000 Human 1 299 148 168 64.82
+yolov3-tiny-3l_4000.weights 4000 Human 1 317 73 150 76.99
+yolov3-tiny-3l_5000.weights 5000 Human 1 326 138 141 70.75
+yolov3-tiny-3l_6000.weights 6000 Human 1 323 90 144 74.20
+yolov3-tiny-3l_7000.weights 7000 Human 1 327 106 140 76.11
+yolov3-tiny-3l_8000.weights 8000 Human 1 324 81 143 76.61
+yolov3-tiny-3l_9000.weights 9000 Human 1 335 80 132 78.70
+yolov3-tiny-3l_final.weights final Human 1 353 71 114 81.33
+yolov3-tiny-3l_last.weights last Human 1 353 69 114 80.81

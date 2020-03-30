@@ -7,9 +7,11 @@
 ###################################################################
 
 import numpy as np
+from pandas import read_csv
 import argparse
 import os
 import csv
+import re
 from subprocess import check_output, Popen, PIPE, DEVNULL
 from shutil import rmtree
 
@@ -39,6 +41,8 @@ ap.add_argument("--rot_angle", type=int, required=False, help="Integer increment
 
 # Evaluation arguments.
 
+ap.add_argument("--test_folder", type=str, required=False, help="Folder containing images and labels for the testing dataset.")
+ap.add_argument("--prefix", type=str, required=False, help="Prefix information for the selection of models during evaluation.")
 ap.add_argument("--iou_thresh", type=float, required=False, help="Threshold for the Intersection over Union of correct predictions relative to ground boxes.")
 
 # Detection arguments.
@@ -113,6 +117,48 @@ if ultra_present == False:
 else:
     print("Done.")
 
+# Define a function to count the total number of classes in a folder.
+
+def astroeco_ml_allclasscount(target_folder):
+
+    ## Open a list of file names in the target folder.
+
+    imgs = []
+
+    ## Add .png and .jpg files to the list of file names.
+
+    for file in os.listdir(target_folder):
+        if (file.endswith(".png") or file.endswith(".jpg")):
+            imgs.append(os.path.join(target_folder, file))
+
+    ## Read in the label files and compute the number of each class.
+
+    classes = []
+
+    for img in imgs:
+
+        try:
+
+            labels = read_csv(img[:-4] + ".txt", sep = " ", header = None).values
+
+            lab_row = labels.shape[0]
+	
+            for i in range(0, lab_row):
+                if not (labels[i,1] == 0 and labels[i,2] == 0 and labels[i,3] == 0 and labels[i,4] == 0):
+                    classes.append(labels[i,0])
+        except:
+            continue
+
+    max_class = int(np.max(classes))
+
+    labs = []
+
+    for i in range(0, max_class+1):
+        class_num = sum(s == i for s in classes)
+        labs.append(class_num)
+
+    return labs
+
 # Define functions for the three operating modes of this script.
 
 def astroeco_ml_train(args, cwd, darknet_path):
@@ -185,12 +231,6 @@ def astroeco_ml_train(args, cwd, darknet_path):
     check_output(['python ' + os.path.join(cwd, 'removebadlbls.py')], shell = True)
 
     print("Done.")
-
-    #################################################
-
-    ## Consider adding rotation augmentation here. ##
-
-    #################################################
 
     # Augment the rotation of the training data if requested.
 
@@ -2858,11 +2898,354 @@ def astroeco_ml_eval(args, cwd, darknet_path):
 
     print("**********************************************")
 
-    # Move work directory to the darknet folder.
+    os.chdir(cwd)
 
-    os.chdir(darknet_path)
+    # Get the prefix information for selecting models.
 
+    print("Getting prefix information for model selection...")
+
+    prefix = args['prefix']
+
+    if prefix is None:
+        raise NameError("No prefix entered for model selection, use the --prefix argument to supply this. Exiting...")
+    else:
+        print("Done.")
+
+    # Open config filepath.
+
+    print("Opening configuration file for darknet model evaluation...")
+
+    cfg_path = args['cfg']
+
+    if cfg_path is None:
+        raise NameError("No configuration file entered, use the --cfg argument to supply the path. Exiting...")
+    else:
+        print("Done.")
+
+    cfg_path = os.path.join(cwd, cfg_path)
+
+    # Open weights filepath.
+
+    print("Opening model weights folder for darknet model evaluation...")
+
+    model_folder = args['model_folder']
+
+    if model_folder is None:
+        raise NameError("No model folder entered, use the --model_folder argument to supply the path. Exiting...")
+    else:
+        print("Done.")
+
+    model_folder = os.path.join(cwd, model_folder)
+
+    # Open object names filepath.
+
+    print("Opening object names file for darknet model...")
+
+    obj_names_path = args['obj_names']
+
+    if obj_names_path is None:
+        raise NameError("No object names file entered, use the --obj_names argument to supply the path. Exiting...")
+    else:
+        print("Done.")
+
+    obj_names_path = os.path.join(cwd, obj_names_path)
+
+    # Load in the validation and testing data.
+
+    print("Opening folder containing validation data...")
+
+    val_folder = args['val_folder']
+
+    if val_folder is None:
+        raise NameError("No validation set folder path, use the --val_folder argument to supply the path. Exiting...")
+    else:
+        if not os.path.exists(os.path.join(cwd, val_folder)):
+            raise NameError("Supplied validation set folder path does not exist. Exiting...")
+        else:
+            print("Done.")
+
+    print("Opening folder containing testing data...")
+
+    test_folder = args['test_folder']
+
+    if test_folder is None:
+        raise NameError("No testing set folder path, use the --test_folder argument to supply the path. Exiting...")
+    else:
+        if not os.path.exists(os.path.join(cwd, test_folder)):
+            raise NameError("Supplied testing set folder path does not exist. Exiting...")
+        else:
+            print("Done.")
+
+    # Fix any issues with the validation and testing set labels.
+
+    print("Fixing issues with validation set labels...")
+
+    os.chdir(os.path.join(cwd, val_folder))
+
+    check_output(['python ' + os.path.join(cwd, 'removebadlbls.py')], shell = True)
+
+    print("Done.")
+
+    print("Fixing issues with testing set labels...")
+
+    os.chdir(os.path.join(cwd, test_folder))
+
+    check_output(['python ' + os.path.join(cwd, 'removebadlbls.py')], shell = True)
+
+    print("Done.")
+
+    # Setup the folder for the obj.data file.
+
+    print("Opening output folder to store training obj.data files...")
+
+    data_folder = args['data_folder']
+
+    if data_folder is None:
+        raise NameError("No output data folder path, use the --data_folder argument to supply the path. Exiting...")
+    else:
+        print("Done.")
+
+    if not os.path.exists(os.path.join(cwd, data_folder)):
+
+        os.makedirs(os.path.join(cwd, data_folder))
+
+    # Build the obj.data file based on the inputs we have so far.
+
+    data_folder_path = os.path.join(cwd, data_folder)
+
+    # First we must produce the val.txt and test.txt files. Fortunately we have a python script (makedatafiles.py) in this directory to do this.
+
+    os.chdir(os.path.join(cwd, val_folder))
+
+    check_output(['python ' + os.path.join(cwd, 'makedatafiles.py') + ' -f val.txt'], shell = True)
+
+    check_output(['mv val.txt ' + data_folder_path], shell = True)
+
+    os.chdir(os.path.join(cwd, test_folder))
+
+    check_output(['python ' + os.path.join(cwd, 'makedatafiles.py') + ' -f test.txt'], shell = True)
+
+    check_output(['mv test.txt ' + data_folder_path], shell = True)
+
+    # Use the object names file to construct a temporary data file for correctly labelling classes.
+
+    # Open the names file and determine the number of classes.
+
+    os.chdir(cwd)
+
+    obj_names = open(obj_names_path, "r")
+
+    class_names = obj_names.readlines()
+
+    classes = len(class_names)
+
+    class_names = list(map(lambda remn: remn.strip(), class_names))
+
+    # First create an empty.txt file for dummy inputs for the train.txt file as we do not need this for the testing phase.
+
+    empty_file = os.path.join(data_folder_path, 'empty.txt')
+
+    check_output(['touch ' + empty_file], shell = True)
+
+    # Next open a file writer to populate the required fields of the val data file and save to the data folder.
+
+    valfile_path = os.path.join(data_folder_path, 'obj_val.data')
+
+    datafile = open(valfile_path, "w")
+
+    datafile.write("classes = " + str(classes) + "\n")
+
+    datafile.write("train = " + empty_file + "\n")
+
+    datafile.write("valid = " + os.path.join(data_folder_path, 'val.txt') + "\n")
+
+    datafile.write("names = " + obj_names_path + "\n")
     
+    datafile.write("backup = " + cwd)
+
+    datafile.close()
+
+    # Then open a file writer to populate the required fields of the test data file and save to the cwd folder.
+
+    testfile_path = os.path.join(data_folder_path, 'obj_test.data')
+
+    datafile = open(testfile_path, "w")
+
+    datafile.write("classes = " + str(classes) + "\n")
+
+    datafile.write("train = " + empty_file + "\n")
+
+    datafile.write("valid = " + os.path.join(data_folder_path, 'test.txt') + "\n")
+
+    datafile.write("names = " + obj_names_path + "\n")
+    
+    datafile.write("backup = " + cwd)
+
+    datafile.close()
+
+    # Now we can run the pymapread.py function which will use darknet to test the models in a target folder.
+
+    print("Running the evaluation tests on the validation set...")
+
+    map_output_val_path = os.path.join(data_folder_path, 'map_output_val.csv')
+
+    os.chdir(os.path.join(cwd, model_folder))
+
+    check_output(['python ' + os.path.join(cwd, 'pymapread.py') + ' --prefix ' + prefix + ' --datapath ' + valfile_path + ' --cfgpath ' + os.path.join(cwd, cfg_path) + ' --output ' + map_output_val_path + ' --darknet ' + darknet_path], shell = True)
+
+    print("Done.")
+
+    # Read in the output from pymapread.py
+
+    print("Computing final statistics from the validation set run...")
+
+    map_output = read_csv(map_output_val_path, sep = ",", header = None).to_numpy()
+
+    # Remove all non numerical information.
+
+    keep_digits = lambda fun: re.sub('[^0123456789\.]', '', fun)
+
+    keep_digits_func = np.vectorize(keep_digits)
+
+    # Extract the model number (hopefully this is reliable)...
+
+    keep_modnum = lambda fun: re.split(r'_', fun)
+
+    keep_modnum_func = np.vectorize(keep_modnum, otypes=[np.ndarray])
+
+    modnum_split = keep_modnum_func(map_output[:,0])
+
+    modnum_split = np.stack(modnum_split, axis=0)
+
+    modnum = modnum_split[:,len(modnum_split[0])-1]
+
+    remove_weight_str = lambda fun: fun.replace('.weights','')
+
+    remove_weight_str_func = np.vectorize(remove_weight_str)
+
+    modnum = remove_weight_str_func(modnum)
+
+    # Get the total number of each class in the validation folder.
+
+    totals = astroeco_ml_allclasscount(os.path.join(cwd, val_folder))
+
+    # If we have made is this far, it is safe to make a directory for the output in the data folder.
+
+    if not os.path.exists(os.path.join(data_folder_path, 'eval_results')):
+
+        os.makedirs(os.path.join(data_folder_path, 'eval_results'))
+
+    # Collect the statistics class by class.
+
+    for subtot, class_single in enumerate(class_names):
+
+        col_ind = np.where(map_output == ' name = ' + class_single)[1][0]
+
+        results = keep_digits_func(map_output[:,col_ind-1:col_ind+4][:,[0,2,3,4]]).astype(float)
+
+        class_names_id = results[:,0].astype(int)
+
+        true_positives = results[:,2].astype(int)
+
+        false_positives = results[:,3].astype(int)
+
+        false_negatives = totals[subtot] - true_positives
+
+        results = np.column_stack((map_output[:,0], modnum, np.repeat(class_single, len(true_positives)), class_names_id, true_positives, false_positives, false_negatives, results[:,1]))
+
+        # Save the results to a file named after the class_single (the name of the class tested).
+
+        output_file = os.path.join(data_folder_path, 'eval_results', class_single + '_val.txt')
+
+        np.savetxt(output_file, results, delimiter = " ", fmt = "%s %s %s %i %i %i %i %2.2f")
+
+    fin_ind = np.where(map_output == ' name = ' + class_names[classes-1])[1][0]
+
+    fin_results = keep_digits_func(map_output[:,[fin_ind+6,fin_ind+7,fin_ind+8,fin_ind+10,fin_ind+11,fin_ind+12,fin_ind+13,fin_ind+18]]).astype(float)
+
+    overall_tp = fin_results[:,3].astype(int)
+
+    overall_fp = fin_results[:,4].astype(int)
+
+    overall_fn = fin_results[:,5].astype(int)
+
+    fin_results = np.column_stack((map_output[:,0], modnum, fin_results[:,[0,1,2]], overall_tp, overall_fp, overall_fn, fin_results[:,[6,7]]))
+
+    np.savetxt(os.path.join(data_folder_path, 'eval_results', 'overall_val.txt'), fin_results, delimiter = " ", fmt = "%s %s %2.2f %2.2f %2.2f %i %i %i %2.2f %2.2f")
+
+    # Now we can run the pymapread.py function on the test set.
+
+    print("Running the evaluation tests on the testing set...")
+
+    map_output_test_path = os.path.join(data_folder_path, 'map_output_test.csv')
+
+    os.chdir(os.path.join(cwd, model_folder))
+
+    check_output(['python ' + os.path.join(cwd, 'pymapread.py') + ' --prefix ' + prefix + ' --datapath ' + testfile_path + ' --cfgpath ' + os.path.join(cwd, cfg_path) + ' --output ' + map_output_test_path + ' --darknet ' + darknet_path], shell = True)
+
+    print("Done.")
+
+    # Read in the output from pymapread.py
+
+    print("Computing final statistics from the testing set run...")
+
+    map_output = read_csv(map_output_test_path, sep = ",", header = None).to_numpy()
+
+    # Extract the model number (hopefully this is reliable)...
+
+    modnum_split = keep_modnum_func(map_output[:,0])
+
+    modnum_split = np.stack(modnum_split, axis=0)
+
+    modnum = modnum_split[:,len(modnum_split[0])-1]
+
+    modnum = remove_weight_str_func(modnum)
+
+    # Get the total number of each class in the testing folder.
+
+    totals = astroeco_ml_allclasscount(os.path.join(cwd, test_folder))
+
+    # Collect the statistics class by class.
+
+    for subtot, class_single in enumerate(class_names):
+
+        col_ind = np.where(map_output == ' name = ' + class_single)[1][0]
+
+        results = keep_digits_func(map_output[:,col_ind-1:col_ind+4][:,[0,2,3,4]]).astype(float)
+
+        class_names_id = results[:,0].astype(int)
+
+        true_positives = results[:,2].astype(int)
+
+        false_positives = results[:,3].astype(int)
+
+        false_negatives = totals[subtot] - true_positives
+
+        results = np.column_stack((map_output[:,0], modnum, np.repeat(class_single, len(true_positives)), class_names_id, true_positives, false_positives, false_negatives, results[:,1]))
+
+        # Save the results to a file named after the class_single (the name of the class tested).
+
+        output_file = os.path.join(data_folder_path, 'eval_results', class_single + '_test.txt')
+
+        np.savetxt(output_file, results, delimiter = " ", fmt = "%s %s %s %i %i %i %i %2.2f")
+
+    fin_ind = np.where(map_output == ' name = ' + class_names[classes-1])[1][0]
+
+    fin_results = keep_digits_func(map_output[:,[fin_ind+6,fin_ind+7,fin_ind+8,fin_ind+10,fin_ind+11,fin_ind+12,fin_ind+13,fin_ind+18]]).astype(float)
+
+    overall_tp = fin_results[:,3].astype(int)
+
+    overall_fp = fin_results[:,4].astype(int)
+
+    overall_fn = fin_results[:,5].astype(int)
+
+    fin_results = np.column_stack((map_output[:,0], modnum, fin_results[:,[0,1,2]], overall_tp, overall_fp, overall_fn, fin_results[:,[6,7]]))
+
+    np.savetxt(os.path.join(data_folder_path, 'eval_results', 'overall_test.txt'), fin_results, delimiter = " ", fmt = "%s %s %2.2f %2.2f %2.2f %i %i %i %2.2f %2.2f")
+
+    print("Done.")
+
+    print("These statistics can be found in a directory named 'eval_results' inside the chosen data output directory.")
 
 def astroeco_ml_detect(args, cwd, ultra_path):
 
