@@ -2911,6 +2911,18 @@ def astroeco_ml_eval(args, cwd, darknet_path):
     else:
         print("Done.")
 
+    # Fetch the IoU threshold argument, default to 0.5 if not present.
+
+    print("Getting prefix information for model selection...")
+
+    iou_thresh = args['iou_thresh']
+
+    if iou_thresh is None:
+        print("No IoU threshold entered, use the --iou_thresh argument to supply this. Defaulting to 0.5.")
+        iou_thresh = 0.5
+    else:
+        print("IoU threshold of " + str(iou_thresh) + " selected.")
+
     # Open config filepath.
 
     print("Opening configuration file for darknet model evaluation...")
@@ -3091,7 +3103,7 @@ def astroeco_ml_eval(args, cwd, darknet_path):
 
     os.chdir(os.path.join(cwd, model_folder))
 
-    check_output(['python ' + os.path.join(cwd, 'pymapread.py') + ' --prefix ' + prefix + ' --datapath ' + valfile_path + ' --cfgpath ' + os.path.join(cwd, cfg_path) + ' --output ' + map_output_val_path + ' --darknet ' + darknet_path], shell = True)
+    check_output(['python ' + os.path.join(cwd, 'pymapread.py') + ' --prefix ' + prefix + ' --datapath ' + valfile_path + ' --cfgpath ' + os.path.join(cwd, cfg_path) + ' --output ' + map_output_val_path + ' --darknet ' + darknet_path + ' --iou_thresh ' + str(iou_thresh)], shell = True)
 
     print("Done.")
 
@@ -3181,7 +3193,7 @@ def astroeco_ml_eval(args, cwd, darknet_path):
 
     os.chdir(os.path.join(cwd, model_folder))
 
-    check_output(['python ' + os.path.join(cwd, 'pymapread.py') + ' --prefix ' + prefix + ' --datapath ' + testfile_path + ' --cfgpath ' + os.path.join(cwd, cfg_path) + ' --output ' + map_output_test_path + ' --darknet ' + darknet_path], shell = True)
+    check_output(['python ' + os.path.join(cwd, 'pymapread.py') + ' --prefix ' + prefix + ' --datapath ' + testfile_path + ' --cfgpath ' + os.path.join(cwd, cfg_path) + ' --output ' + map_output_test_path + ' --darknet ' + darknet_path + ' --iou_thresh ' + str(iou_thresh)], shell = True)
 
     print("Done.")
 
