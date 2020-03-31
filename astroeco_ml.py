@@ -2923,6 +2923,11 @@ def astroeco_ml_eval(args, cwd, darknet_path):
     else:
         print("IoU threshold of " + str(iou_thresh) + " selected.")
 
+    # Then check to see if the IoU threshold is outside of 0.0-1.0. This is a big no no!
+
+    if (iou_thresh < 0 or iou_thresh > 1):
+        raise NameError("IoU threshold outside of acceptable range. Please re-enter a value between 0.0 and 1.0.")
+
     # Open config filepath.
 
     print("Opening configuration file for darknet model evaluation...")
