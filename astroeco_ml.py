@@ -3180,13 +3180,15 @@ def astroeco_ml_eval(args, cwd, darknet_path):
 
     fin_results = keep_digits_func(map_output[:,[fin_ind+6,fin_ind+7,fin_ind+8,fin_ind+10,fin_ind+11,fin_ind+12,fin_ind+13,fin_ind+18]]).astype(float)
 
+    f1_score = fin_results[:,2] - 10.
+
     overall_tp = fin_results[:,3].astype(int)
 
     overall_fp = fin_results[:,4].astype(int)
 
     overall_fn = fin_results[:,5].astype(int)
 
-    fin_results = np.column_stack((map_output[:,0], modnum, fin_results[:,[0,1,2]], overall_tp, overall_fp, overall_fn, fin_results[:,[6,7]]))
+    fin_results = np.column_stack((map_output[:,0], modnum, fin_results[:,[0,1]], f1_score, overall_tp, overall_fp, overall_fn, fin_results[:,[6,7]]))
 
     np.savetxt(os.path.join(data_folder_path, 'eval_results', 'overall_val.txt'), fin_results, delimiter = " ", fmt = "%s %s %2.2f %2.2f %2.2f %i %i %i %2.2f %2.2f")
 
@@ -3250,13 +3252,15 @@ def astroeco_ml_eval(args, cwd, darknet_path):
 
     fin_results = keep_digits_func(map_output[:,[fin_ind+6,fin_ind+7,fin_ind+8,fin_ind+10,fin_ind+11,fin_ind+12,fin_ind+13,fin_ind+18]]).astype(float)
 
+    f1_score = fin_results[:,2] - 10.
+
     overall_tp = fin_results[:,3].astype(int)
 
     overall_fp = fin_results[:,4].astype(int)
 
     overall_fn = fin_results[:,5].astype(int)
 
-    fin_results = np.column_stack((map_output[:,0], modnum, fin_results[:,[0,1,2]], overall_tp, overall_fp, overall_fn, fin_results[:,[6,7]]))
+    fin_results = np.column_stack((map_output[:,0], modnum, fin_results[:,[0,1]], f1_score, overall_tp, overall_fp, overall_fn, fin_results[:,[6,7]]))
 
     np.savetxt(os.path.join(data_folder_path, 'eval_results', 'overall_test.txt'), fin_results, delimiter = " ", fmt = "%s %s %2.2f %2.2f %2.2f %i %i %i %2.2f %2.2f")
 
