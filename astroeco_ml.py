@@ -56,6 +56,17 @@ ap.add_argument("--make_video", required=False, default=False, action='store_tru
 ap.add_argument("--video_framerate", type=float, required=False, help="Framerate of output video from final classifications.")
 ap.add_argument("--output", type=str, required=False, help="Output folder of images classified with existing detection model.")
 
+# Blob arguments, as they require us to build the new dataset.
+
+ap.add_argument("--blobaug", required=False, default=False, action='store_true', help="Flag to augment the data with blobs.")
+ap.add_argument("--num_blobs", type=int, required=False, help="max blobs to place")
+ap.add_argument("--blob_size", type=float, required=False, help="max blob size")
+ap.add_argument("--blob_amplitude", type=float, required=False, help="blob brightness")
+ap.add_argument("--blob_skew_x", default=1, type=float, required=False, help="skew in x")
+ap.add_argument("--blob_skew_y", default=3, type=float, required=False, help="skew in y")
+ap.add_argument("--blob_prob", type=float, required=False, help="probability of adding blob", default=0.5)
+ap.add_argument("--blob_class_id", type=int, required=False, help="object class ID")
+
 # Parse the arguments.
 
 args = vars(ap.parse_args())
@@ -221,6 +232,112 @@ def astroeco_ml_train(args, cwd, darknet_path):
             raise NameError("Supplied validation set folder path does not exist. Exiting...")
         else:
             print("Done.")
+
+    # Augment a set of images with no labels with blobs, this is the only time we will need a test set during the training stage.
+
+    # If a test set directory is not supplied, we will skip it with a warning.
+
+    blobaug = args['blobaug']
+
+    num_blobs = args['num_blobs']
+
+    blob_size = args['blob_size']
+
+    blob_amplitude = args['blob_amplitude']
+
+    blob_skew_x = args['blob_skew_x']
+
+    blob_skew_y = args['blob_skew_y']
+
+    blob_prob = args['blob_prob']
+
+    blob_class_id = args['blob_class_id']
+
+    if blobaug == False:
+        print("Blobaug argument not present. No blob augmentation will be applied. You can add it by supplying the --blobaug flag.")
+    else:
+        if num_blobs is None:
+            raise NameError("Blob augmentation requested but the number of blobs is missing, use the --num_blobs argument to supply this. Exiting...")
+        if blob_size is None:
+            raise NameError("Blob augmentation requested but the blob size is missing, use the --blob_size argument to supply this. Exiting...")
+        if blob_amplitude is None:
+            raise NameError("Blob augmentation requested but the blob amplitude is missing, use the --blob_amplitude argument to supply this. Exiting...")
+        if blob_skew_x is None:
+            raise NameError("Blob augmentation requested but the blob skewness in the x direction is missing, use the --blob_skew_x argument to supply this. Exiting...")
+        if blob_skew_y is None:
+            raise NameError("Blob augmentation requested but the blob skewness in the y direction is missing, use the --blob_skew_y argument to supply this. Exiting...")
+        if blob_prob is None:
+            raise NameError("Blob augmentation requested but the probability of generating a blob is missing, use the --blob_prob argument to supply this. Exiting...")
+        if blob_class_id is None:
+            raise NameError("Blob augmentation requested but the class ID of the new blobs is missing, use the --blob_class_id argument to supply this. Exiting...")
+        else:
+            print("Blobaug argument present. The training, validation and testing data will be augmented with new blob objects using the supplied arguments.")
+
+        # Execute the blob_augment script with the supplied arguments on the training data.
+
+        print("Applying blob augmentation to the training data...")
+
+        # Move to the training data folder.
+
+        os.chdir(os.path.join(cwd, train_folder))
+
+        check_output(['python ' + os.path.join(cwd, 'augment_blobs.py') + ' --num_blobs ' + str(int(num_blobs)) + ' --size ' + str(blob_size) + ' --amplitude ' + str(blob_amplitude) + ' --skew_x ' + str(blob_skew_x) + ' --skew_y ' + str(blob_skew_y) + ' --prob ' + str(blob_prob) + ' --class_id ' + str(int(blob_class_id))], shell = True)
+
+        print("Done.")
+
+        # We need to see if a testing set was supplied.
+
+        test_folder = args['test_folder']
+
+        if test_folder is None:
+            print("No testing set folder path, use the --test_folder argument to supply the path.")
+            print("Skipping performing the blob augmentation on the testing set.")
+        else:
+            if not os.path.exists(os.path.join(cwd, test_folder)):
+                raise NameError("Supplied testing set folder path for blob augmentation does not exist. Exiting...")
+
+        # Change the train_folder value to reflect the new blob_aug folder. This will allow future augmentations to occur to the 'blobbed' data.
+
+        train_folder = os.path.join(train_folder, 'blob_aug')
+
+        # Execute the blob_augment script with the supplied arguments on the validation data.
+
+        print("Applying blob augmentation to the validation data...")
+
+        # Move to the validation data folder.
+
+        os.chdir(os.path.join(cwd, val_folder))
+
+        check_output(['python ' + os.path.join(cwd, 'augment_blobs.py') + ' --num_blobs ' + str(int(num_blobs)) + ' --size ' + str(blob_size) + ' --amplitude ' + str(blob_amplitude) + ' --skew_x ' + str(blob_skew_x) + ' --skew_y ' + str(blob_skew_y) + ' --prob ' + str(blob_prob) + ' --class_id ' + str(int(blob_class_id))], shell = True)
+
+        print("Done.")
+
+        # Change the val_folder value to reflect the new blob_aug folder. This will allow future augmentations to occur to the 'blobbed' data.
+
+        val_folder = os.path.join(val_folder, 'blob_aug')
+
+        # If a testing folder path is supplied, we execute the blob_augment script on it too.
+
+        if test_folder is None:
+            print("No testing set folder path, skipping blob augmentation.")
+        else:
+            print("Applying blob augmentation to the testing data...")
+
+            # Move to the testing data folder.
+
+            os.chdir(os.path.join(cwd, test_folder))
+
+            check_output(['python ' + os.path.join(cwd, 'augment_blobs.py') + ' --num_blobs ' + str(int(num_blobs)) + ' --size ' + str(blob_size) + ' --amplitude ' + str(blob_amplitude) + ' --skew_x ' + str(blob_skew_x) + ' --skew_y ' + str(blob_skew_y) + ' --prob ' + str(blob_prob) + ' --class_id ' + str(int(blob_class_id))], shell = True)
+
+            print("Done.")
+
+            # Change the test_folder value to reflect the new blob_aug folder. This will allow future augmentations to occur to the 'blobbed' data (although for the testing data, it shouldn't need it).
+
+            test_folder = os.path.join(test_folder, 'blob_aug')
+
+        print("Blob augmentation complete.")
+
+        os.chdir(cwd)
 
     # Fix any issues with the training set labels.
 
