@@ -60,7 +60,8 @@ ap.add_argument("--output", type=str, required=False, help="Output folder of ima
 
 ap.add_argument("--blobaug", required=False, default=False, action='store_true', help="Flag to augment the data with blobs.")
 ap.add_argument("--num_blobs", type=int, required=False, help="max blobs to place")
-ap.add_argument("--blob_size", type=float, required=False, help="max blob size")
+ap.add_argument("--blob_minsize", type=float, required=False, help="min blob size")
+ap.add_argument("--blob_maxsize", type=float, required=False, help="max blob size")
 ap.add_argument("--blob_amplitude", type=float, required=False, help="blob brightness")
 ap.add_argument("--blob_skew_x", default=1, type=float, required=False, help="skew in x")
 ap.add_argument("--blob_skew_y", default=3, type=float, required=False, help="skew in y")
@@ -241,7 +242,9 @@ def astroeco_ml_train(args, cwd, darknet_path):
 
     num_blobs = args['num_blobs']
 
-    blob_size = args['blob_size']
+    blob_minsize = args['blob_minsize']
+
+    blob_maxsize = args['blob_maxsize']
 
     blob_amplitude = args['blob_amplitude']
 
@@ -258,8 +261,10 @@ def astroeco_ml_train(args, cwd, darknet_path):
     else:
         if num_blobs is None:
             raise NameError("Blob augmentation requested but the number of blobs is missing, use the --num_blobs argument to supply this. Exiting...")
-        if blob_size is None:
-            raise NameError("Blob augmentation requested but the blob size is missing, use the --blob_size argument to supply this. Exiting...")
+        if blob_minsize is None:
+            raise NameError("Blob augmentation requested but the minimum blob size is missing, use the --blob_minsize argument to supply this. Exiting...")
+        if blob_maxsize is None:
+            raise NameError("Blob augmentation requested but the maximum blob size is missing, use the --blob_maxsize argument to supply this. Exiting...")
         if blob_amplitude is None:
             raise NameError("Blob augmentation requested but the blob amplitude is missing, use the --blob_amplitude argument to supply this. Exiting...")
         if blob_skew_x is None:
@@ -281,7 +286,7 @@ def astroeco_ml_train(args, cwd, darknet_path):
 
         os.chdir(os.path.join(cwd, train_folder))
 
-        check_output(['python ' + os.path.join(cwd, 'augment_blobs.py') + ' --num_blobs ' + str(int(num_blobs)) + ' --size ' + str(blob_size) + ' --amplitude ' + str(blob_amplitude) + ' --skew_x ' + str(blob_skew_x) + ' --skew_y ' + str(blob_skew_y) + ' --prob ' + str(blob_prob) + ' --class_id ' + str(int(blob_class_id))], shell = True)
+        check_output(['python ' + os.path.join(cwd, 'augment_blobs.py') + ' --num_blobs ' + str(int(num_blobs)) + ' --minsize ' + str(blob_minsize) + ' --maxsize ' + str(blob_maxsize) + ' --amplitude ' + str(blob_amplitude) + ' --skew_x ' + str(blob_skew_x) + ' --skew_y ' + str(blob_skew_y) + ' --prob ' + str(blob_prob) + ' --class_id ' + str(int(blob_class_id))], shell = True)
 
         print("Done.")
 
@@ -308,7 +313,7 @@ def astroeco_ml_train(args, cwd, darknet_path):
 
         os.chdir(os.path.join(cwd, val_folder))
 
-        check_output(['python ' + os.path.join(cwd, 'augment_blobs.py') + ' --num_blobs ' + str(int(num_blobs)) + ' --size ' + str(blob_size) + ' --amplitude ' + str(blob_amplitude) + ' --skew_x ' + str(blob_skew_x) + ' --skew_y ' + str(blob_skew_y) + ' --prob ' + str(blob_prob) + ' --class_id ' + str(int(blob_class_id))], shell = True)
+        check_output(['python ' + os.path.join(cwd, 'augment_blobs.py') + ' --num_blobs ' + str(int(num_blobs)) + ' --minsize ' + str(blob_minsize) + ' --maxsize ' + str(blob_maxsize) + ' --amplitude ' + str(blob_amplitude) + ' --skew_x ' + str(blob_skew_x) + ' --skew_y ' + str(blob_skew_y) + ' --prob ' + str(blob_prob) + ' --class_id ' + str(int(blob_class_id))], shell = True)
 
         print("Done.")
 
@@ -327,7 +332,7 @@ def astroeco_ml_train(args, cwd, darknet_path):
 
             os.chdir(os.path.join(cwd, test_folder))
 
-            check_output(['python ' + os.path.join(cwd, 'augment_blobs.py') + ' --num_blobs ' + str(int(num_blobs)) + ' --size ' + str(blob_size) + ' --amplitude ' + str(blob_amplitude) + ' --skew_x ' + str(blob_skew_x) + ' --skew_y ' + str(blob_skew_y) + ' --prob ' + str(blob_prob) + ' --class_id ' + str(int(blob_class_id))], shell = True)
+            check_output(['python ' + os.path.join(cwd, 'augment_blobs.py') + ' --num_blobs ' + str(int(num_blobs)) + ' --minsize ' + str(blob_minsize) + ' --maxsize ' + str(blob_maxsize) + ' --amplitude ' + str(blob_amplitude) + ' --skew_x ' + str(blob_skew_x) + ' --skew_y ' + str(blob_skew_y) + ' --prob ' + str(blob_prob) + ' --class_id ' + str(int(blob_class_id))], shell = True)
 
             print("Done.")
 

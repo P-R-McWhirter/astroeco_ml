@@ -37,7 +37,7 @@ def place_object(image, obj, loc_x=-1, loc_y=-1, allow_crop=True, noise=True, no
 
     """
     
-    height, width = image.shape
+    height, width = image.shape[0:2]
     o_height, o_width = obj.shape
     
     if loc_x == -1 and loc_y == -1:
@@ -54,7 +54,10 @@ def place_object(image, obj, loc_x=-1, loc_y=-1, allow_crop=True, noise=True, no
     loc_x += pad_x
     loc_y += pad_y
 
-    image_pad = np.zeros((height+2*pad_y, width+2*pad_x))
+    if len(image.shape) == 2:
+        image = np.expand_dims(image, axis=-1)
+
+    image_pad = np.zeros((height+2*pad_y, width+2*pad_x, image.shape[2]))
     image_pad[pad_y:-pad_y, pad_x:-pad_x] = image
 
     lim_left = int(loc_x-o_width/2)
@@ -65,10 +68,13 @@ def place_object(image, obj, loc_x=-1, loc_y=-1, allow_crop=True, noise=True, no
     
     if noise:
         obj += noise_amp*np.random.poisson(0.1, size=obj.shape)
+
+    if len(image.shape) != len(obj.shape):
+        obj = np.repeat(obj[:,:,np.newaxis], image.shape[2], axis=2)
     
-    image_pad[lim_top:lim_bottom,lim_left:lim_right] += obj
+    image_pad[lim_top:lim_bottom,lim_left:lim_right,:] += obj
             
-    return image_pad[pad_y:-pad_y, pad_x:-pad_x], (loc_x-pad_x, loc_y-pad_y)
+    return image_pad[pad_y:-pad_y, pad_x:-pad_x], (loc_x, loc_y)
 
 def skew_gaussian(size=9, amp_mu=5, amp_std=2, skew_x=3, skew_y=3):
     """
@@ -121,7 +127,8 @@ def skew_gaussian(size=9, amp_mu=5, amp_std=2, skew_x=3, skew_y=3):
 if __name__ == "__main__":
     ap = argparse.ArgumentParser()
     ap.add_argument("-n", "--num_blobs", type=int, required=True, help="max blobs to place")
-    ap.add_argument("-s", "--size", type=float, required=True, help="max blob size")
+    ap.add_argument("-s", "--minsize", type=float, required=True, help="min blob size")
+    ap.add_argument("-m", "--maxsize", type=float, required=True, help="max blob size")
     ap.add_argument("-a", "--amplitude", type=float, required=True, help="blob brightness")
     ap.add_argument("-x", "--skew_x", default=1, type=float, required=True, help="skew in x")
     ap.add_argument("-y", "--skew_y", default=3, type=float, required=True, help="skew in y")
@@ -148,24 +155,27 @@ if __name__ == "__main__":
         img = cv2.imread(file, cv2.IMREAD_UNCHANGED)
         
         # Generate blobs
-        num_blobs = random.randint(0, args.num_blobs)
+        num_blobs = random.randint(0, args['num_blobs'])
         bboxes = []
         
         for i in range(num_blobs):
-            if random.random() > args.p:
+            if random.random() > args['prob']:
 
                 # Place an blob
-                obj = skew_gaussian(size=args.size, skew_x=1, skew_y=3, amp_mu=args.amplitude)
+                randsize = random.randint(args['minsize'], args['maxsize'])
+                if randsize % 2 == 0:
+                    randsize += 1
+                obj = skew_gaussian(size=randsize, skew_x=1, skew_y=3, amp_mu=args['amplitude'])
                 img, coord = place_object(img, obj)
 
                 x, y = coord
-                height, width = img.shape
-                centre_x -= args.size/4
-                centre_y -= args.object_size/4
-                obj_width = args.object_size
-                obj_height = args.object_size
+                height, width = img.shape[0:2]
+                centre_x = x
+                centre_y = y
+                obj_width = randsize
+                obj_height = randsize
 
-                bboxes.append("{} {} {} {} {}\n".format(args.class_id, centre_x/width, centre_y/height, obj_width/width, obj_height/height))
+                bboxes.append("{} {} {} {} {}\n".format(args['class_id'], centre_x/width, centre_y/height, obj_width/width, obj_height/height))
 
         # Write new image
         cv2.imwrite(os.path.join(new_folder, file), img)
