@@ -167,8 +167,8 @@ for file in imgs:
         
             rot_labels_x = rot_labels_x / w
             rot_labels_y = rot_labels_y / h
-            rot_labels_w = rot_labels_w / w
-            rot_labels_h = rot_labels_h / h
+            rot_labels_w = np.minimum(rot_labels_w / w, np.repeat(1, len(rot_labels_w)))
+            rot_labels_h = np.minimum(rot_labels_h / h, np.repeat(1, len(rot_labels_h)))
         
             rot_labels = np.column_stack((labels[:,0], rot_labels_x, rot_labels_y, rot_labels_w, rot_labels_h))
     
