@@ -131,7 +131,7 @@ else:
 
 # Define a function to count the total number of classes in a folder.
 
-def astroeco_ml_allclasscount(target_folder):
+def astroeco_ml_allclasscount(target_folder, max_class):
 
     ## Open a list of file names in the target folder.
 
@@ -160,8 +160,6 @@ def astroeco_ml_allclasscount(target_folder):
                     classes.append(labels[i,0])
         except:
             continue
-
-    max_class = int(np.max(classes))
 
     labs = []
 
@@ -3266,7 +3264,7 @@ def astroeco_ml_eval(args, cwd, darknet_path):
 
     # Get the total number of each class in the validation folder.
 
-    totals = astroeco_ml_allclasscount(os.path.join(cwd, val_folder))
+    totals = astroeco_ml_allclasscount(os.path.join(cwd, val_folder), classes)
 
     # If we have made is this far, it is safe to make a directory for the output in the data folder.
 
@@ -3344,7 +3342,7 @@ def astroeco_ml_eval(args, cwd, darknet_path):
 
     # Get the total number of each class in the testing folder.
 
-    totals = astroeco_ml_allclasscount(os.path.join(cwd, test_folder))
+    totals = astroeco_ml_allclasscount(os.path.join(cwd, test_folder), classes)
 
     # Collect the statistics class by class.
 
