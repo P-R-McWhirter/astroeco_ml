@@ -184,6 +184,8 @@ if __name__ == "__main__":
         label_file = file[:-4] + ".txt"
         if os.path.exists(os.path.join(cwd, label_file)):
             shutil.copy2(os.path.join(cwd, label_file), os.path.join(new_folder, label_file))
+        else:
+            open(os.path.join(new_folder, label_file), 'a').close()
 
         # Write boxes (append and create file if necessary)
         for box in bboxes:
